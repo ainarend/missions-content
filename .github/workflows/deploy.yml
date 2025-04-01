@@ -1,0 +1,23 @@
+name: GitHub Pages CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    if: "!contains(github.event.head_commit.message, '-en')"
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@4.1.4
+        with:
+          branch: gh-pages
+          folder: .
