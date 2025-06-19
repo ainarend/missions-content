@@ -1,39 +1,67 @@
 #!/bin/bash
 
-# Script to delete riddle files older than 3 days
+# Safe script to preview deletion of riddle files older than 3 days
 # Pattern: boy-{age}-{YYYY-MM-DD}.json or girl-{age}-{YYYY-MM-DD}.json
 
-# Calculate the cutoff date (3 days ago)
-CUTOFF_DATE=$(date -d '3 days ago' '+%Y-%m-%d')
+# Set to "true" to actually delete files, "false" for dry-run
+DRY_RUN=true
 
-echo "Deleting files older than $CUTOFF_DATE..."
+# Calculate the cutoff date (3 days ago) - works on both macOS and Linux
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    CUTOFF_DATE=$(date -v-3d '+%Y-%m-%d')
+else
+    # Linux
+    CUTOFF_DATE=$(date -d '3 days ago' '+%Y-%m-%d')
+fi
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    echo "=== DRY RUN MODE - No files will be deleted ==="
+else
+    echo "=== LIVE MODE - Files will be deleted ==="
+fi
+
+echo "Files older than $CUTOFF_DATE will be processed..."
 echo "Current date: $(date '+%Y-%m-%d')"
 echo ""
 
-# Counter for deleted files
-deleted_count=0
+# Counters
+files_to_delete=0
+files_to_keep=0
 
 # Find and process files matching the pattern
-for file in {boy,girl}-[2-8]-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].json; do
+for file in ./content/{boy,girl}-[2-8]-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].json; do
     # Check if file exists (in case no files match the pattern)
     if [[ ! -f "$file" ]]; then
         continue
     fi
     
-    # Extract date from filename using parameter expansion
-    # Remove everything up to the last dash, then remove .json
-    file_date_part="${file##*-}"
-    file_date="${file_date_part%.json}"
+    # Extract the full date from filename (YYYY-MM-DD)
+    # Pattern: {boy|girl}-{age}-YYYY-MM-DD.json
+    # Remove prefix up to the age number, then extract YYYY-MM-DD
+    temp="${file#*-*-}"  # Remove "boy-2-" or "girl-3-" etc.
+    file_date="${temp%.json}"  # Remove ".json" to get YYYY-MM-DD
     
-    # Compare dates (string comparison works for YYYY-MM-DD format)
+    # Compare dates
     if [[ "$file_date" < "$CUTOFF_DATE" ]]; then
-        echo "Deleting: $file (date: $file_date)"
-        rm "$file"
-        ((deleted_count++))
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Would delete: $file (date: $file_date)"
+        else
+            echo "Deleting: $file (date: $file_date)"
+            rm "$file"
+        fi
+        ((files_to_delete++))
     else
         echo "Keeping: $file (date: $file_date)"
+        ((files_to_keep++))
     fi
 done
 
 echo ""
-echo "Deleted $deleted_count files older than $CUTOFF_DATE"
+if [[ "$DRY_RUN" == "true" ]]; then
+    echo "Summary: $files_to_delete files would be deleted, $files_to_keep files would be kept"
+    echo ""
+    echo "To actually delete the files, change DRY_RUN=false in the script"
+else
+    echo "Summary: $files_to_delete files deleted, $files_to_keep files kept"
+fi
